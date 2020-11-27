@@ -60,7 +60,10 @@ private[mima] sealed abstract class ClassInfo(val owner: PackageInfo) extends In
   final var _fields: Members[FieldInfo]   = NoMembers
   final var _methods: Members[MethodInfo] = NoMembers
   final var _flags: Int                   = 0
+  final var _packagePrivate: Boolean      = false
   final var _implClass: ClassInfo         = NoClass
+  final var _moduleClass: ClassInfo       = NoClass
+  final var _module: ClassInfo            = NoClass
 
   protected def afterLoading[A](x: => A): A
 
@@ -72,18 +75,21 @@ private[mima] sealed abstract class ClassInfo(val owner: PackageInfo) extends In
   final def fields: Members[FieldInfo]   = afterLoading(_fields)
   final def methods: Members[MethodInfo] = afterLoading(_methods)
   final def flags: Int                   = afterLoading(_flags)
+  final def isPackagePrivate: Boolean    = afterLoading(_packagePrivate)
   final def implClass: ClassInfo         = { owner.setImplClasses; _implClass } // returns NoClass if this is not a trait
+  final def moduleClass: ClassInfo       = { owner.setModules; _moduleClass }
+  final def module: ClassInfo            = { owner.setModules; _module }
 
-  final def isTrait: Boolean     = implClass ne NoClass // trait with some concrete methods or fields
-  final def isModule: Boolean    = bytecodeName.endsWith("$") // super scuffed
-  final def isImplClass: Boolean = bytecodeName.endsWith("$class")
-  final def isInterface: Boolean = ClassfileParser.isInterface(flags) // java interface or trait w/o impl methods
-  final def isClass: Boolean     = !isTrait && !isInterface // class, object or trait's impl class
+  final def isTrait: Boolean          = implClass ne NoClass // trait with some concrete methods or fields
+  final def isModuleClass: Boolean    = bytecodeName.endsWith("$") // super scuffed
+  final def isImplClass: Boolean      = bytecodeName.endsWith("$class")
+  final def isInterface: Boolean      = ClassfileParser.isInterface(flags) // java interface or trait w/o impl methods
+  final def isClass: Boolean          = !isTrait && !isInterface // class, object or trait's impl class
 
   final def accessModifier: String    = if (isProtected) "protected" else if (isPrivate) "private" else ""
-  final def declarationPrefix: String = if (isModule) "object" else if (isTrait) "trait" else if (isInterface) "interface" else "class"
+  final def declarationPrefix: String = if (isModuleClass) "object" else if (isTrait) "trait" else if (isInterface) "interface" else "class"
   final lazy val fullName: String     = if (owner.isRoot) bytecodeName else s"${owner.fullName}.$bytecodeName"
-  final def formattedFullName: String = formatClassName(if (isModule) fullName.init else fullName)
+  final def formattedFullName: String = formatClassName(if (isModuleClass) fullName.init else fullName)
   final def description: String       = s"$declarationPrefix $formattedFullName"
   final def classString: String       = s"$accessModifier $declarationPrefix $formattedFullName".trim
 

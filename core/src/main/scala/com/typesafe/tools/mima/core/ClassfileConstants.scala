@@ -43,4 +43,8 @@ private[core] object ClassfileConstants {
   final val VOID_TAG       = 'V'
   final val OBJECT_TAG     = 'L'
   final val ANNOTATION_TAG = '@'
+
+  final val STRING_TAG = 's'
+  final val ENUM_TAG   = 'e'
+  final val CLASS_TAG  = 'c'
 }

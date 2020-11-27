@@ -18,10 +18,12 @@ private[core] sealed class BytesReader(buf: Array[Byte]) {
   final def getDouble(idx: Int): Double = longBitsToDouble(getLong(idx))
 
   final def getString(idx: Int, len: Int): String = new String(buf, idx, len, StandardCharsets.UTF_8)
+
+  final def getBytes(idx: Int, bytes: Array[Byte]): Unit = System.arraycopy(buf, idx, bytes, 0, bytes.length)
 }
 
 /** A BytesReader which also holds a mutable pointer to where it will read next. */
-private[core] final class BufferReader(buf: Array[Byte]) extends BytesReader(buf) {
+private[core] final class BufferReader(buf: Array[Byte], val path: String) extends BytesReader(buf) {
   /** the buffer pointer */
   var bp: Int = 0
 

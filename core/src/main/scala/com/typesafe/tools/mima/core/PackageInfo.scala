@@ -73,15 +73,15 @@ sealed abstract class PackageInfo {
     def accessibleClassesUnder(prefix: Set[ClassInfo], found: Set[ClassInfo]): Set[ClassInfo] = {
       val vclasses = (classes.valuesIterator.filter(isAccessible(_, prefix))).toSet
       if (vclasses.isEmpty) found
-      else accessibleClassesUnder(vclasses, vclasses.union(found))
+      else accessibleClassesUnder(vclasses, vclasses ++ found)
     }
 
-    def isAccessible(clazz: ClassInfo, prefix: Set[ClassInfo]) = {
-      def isReachable = {
-        if (prefix.isEmpty) clazz.isTopLevel && !clazz.decodedName.contains("$$")
-        else prefix.exists(_.innerClasses.contains(clazz.bytecodeName))
-      }
-      clazz.isPublic && !clazz.isLocalClass && !clazz.isSynthetic && isReachable
+    def isAccessible(clazz: ClassInfo, prefix: Set[ClassInfo]) =
+      clazz.isPublic && !clazz.isLocalClass && !clazz.isSynthetic && isReachable(clazz, prefix)
+
+    def isReachable(clazz: ClassInfo, prefix: Set[ClassInfo]) = {
+      if (prefix.isEmpty) clazz.isTopLevel && !clazz.decodedName.contains("$$")
+      else prefix.exists(_.innerClasses.contains(clazz.bytecodeName))
     }
 
     accessibleClassesUnder(Set.empty, Set.empty)
@@ -95,6 +95,18 @@ sealed abstract class PackageInfo {
       traitClass <- classes.get(name.stripSuffix("$class"))
     } {
       traitClass._implClass = clazz
+    }
+  }
+
+  // TODO: Foo$ (without pickle) is parsed before Foo (MODULEsym then CLASSsym) so should be able to set this then
+  final lazy val setModules: Unit = {
+    for {
+      (name, clazz) <- classes.iterator
+      if clazz.isModuleClass
+      module <- classes.get(name.init)
+    } {
+      clazz._module      = module
+      clazz._moduleClass = clazz
     }
   }
 
