@@ -4,6 +4,12 @@ import PickleFormat._
 
 object MimaUnpickler {
   def unpickleClass(buf: PickleBuffer, clazz: ClassInfo, path: String) = {
+    //if (path.contains("A")) {
+    //  println(s"unpickling $path")
+    //  ShowPickled.printPickle(buf, Console.out)
+    //  buf.readIndex = 0
+    //}
+
     buf.readNat(); buf.readNat() // major, minor version
 
     val index = buf.createIndex
@@ -91,10 +97,17 @@ object MimaUnpickler {
     }
 
     buf.readIndex = index(0)
-    buf.readByte() match {
-      case  CLASSsym => println(s"tag =  CLASSsym"); read()
-      case MODULEsym => println(s"tag = MODULEsym"); read()
-      case _         =>
+    try {
+      buf.readByte() match {
+        case  CLASSsym => println(s"tag =  CLASSsym"); read()
+        case MODULEsym => println(s"tag = MODULEsym"); read()
+        case _         =>
+      }
+    } catch {
+      case scala.util.control.NonFatal(e) =>
+        println(e)
+        e.getStackTrace.take(10).foreach(x => println(s"        at $x"))
+        throw e
     }
   }
 

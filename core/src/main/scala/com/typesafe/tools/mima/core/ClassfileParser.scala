@@ -49,11 +49,12 @@ final class ClassfileParser private (in: BufferReader, pool: ConstantPool) {
   }
 
   private def parseClassAttributes(clazz: ClassInfo) = {
-    var isScala = false
+    var isScala, isScalaRaw = false
     var runtimeAnnotStart = -1
     parseAttributes {
       case RuntimeAnnotationATTR => runtimeAnnotStart = in.bp
-      case ScalaSignatureATTR    => isScala = true
+      case ScalaSignatureATTR    => isScala    = true
+      case ScalaATTR             => isScalaRaw = true
       case EnclosingMethodATTR   => clazz._isLocalClass = true
       case InnerClassesATTR      => clazz._innerClasses = parseInnerClasses(clazz)
       case _                     =>
@@ -136,7 +137,7 @@ final class ClassfileParser private (in: BufferReader, pool: ConstantPool) {
         case ScalaSignatureAnnot     => checkScalaSigAnnotArg(); bytes = parseScalaSigBytes()
         case ScalaLongSignatureAnnot => checkScalaSigAnnotArg(); bytes = parseScalaLongSigBytes()
         case _                       => skipAnnotArgs()
-      }
+  }
       i += 1
     }
     if (bytes != null) {
@@ -152,6 +153,7 @@ final class ClassfileParser private (in: BufferReader, pool: ConstantPool) {
   private final val EnclosingMethodATTR   = "EnclosingMethod"
   private final val InnerClassesATTR      = "InnerClasses"
   private final val RuntimeAnnotationATTR = "RuntimeVisibleAnnotations"
+  private final val ScalaATTR             = "Scala"
   private final val ScalaSignatureATTR    = "ScalaSig"
   private final val SignatureATTR         = "Signature"
 }
