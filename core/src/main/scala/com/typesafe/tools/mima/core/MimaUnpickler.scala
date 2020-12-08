@@ -46,7 +46,7 @@ object MimaUnpickler {
       buf.readNat()     // owner (symbol) ref
       buf.readLongNat() // flags
       buf.readNat()     // privateWithin or symbol info (compare to end)
-      if (buf.readIndex != end) clazz._packagePrivate = true
+      if (buf.readIndex != end) clazz._scopedPrivate = true
     }
 
     def valSym(): (String, Boolean) = {
@@ -55,9 +55,9 @@ object MimaUnpickler {
       val owner = buf.readNat()
       buf.readLongNat() // flags
       buf.readNat()     // privateWithin or symbol info (compare to end)
-      val isPackagePrivate = buf.readIndex != end && owner == 0
+      val isScopedPrivate = buf.readIndex != end && owner == 0
       buf.readIndex = end
-      (name, isPackagePrivate)
+      (name, isScopedPrivate)
     }
 
     def read(): Unit = {
@@ -75,8 +75,8 @@ object MimaUnpickler {
         val methods = clazz.moduleClass._methods.get(name).toList
         if (methods.nonEmpty) { // fields are VALsym's with name "bar " (local)
           assert(overloads.size == methods.size, s"size mismatch; methods=$methods overloads=$overloads")
-          methods.zip(overloads).foreach { case (method, (_, isPackagePrivate)) =>
-            method.packagePrivate = isPackagePrivate
+          methods.zip(overloads).foreach { case (method, (_, isScopedPrivate)) =>
+            method.scopedPrivate = isScopedPrivate
           }
         }
       }

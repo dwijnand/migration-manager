@@ -25,7 +25,7 @@ object Analyzer {
   }
 
   def analyze(oldclazz: ClassInfo, newclazz: ClassInfo, log: Logging): List[Problem] = {
-    if ((if (newclazz.isModuleClass) newclazz.module else newclazz).isPackagePrivate) Nil
+    if ((if (newclazz.isModuleClass) newclazz.module else newclazz).isScopedPrivate) Nil
     else {
       TemplateChecker.check(oldclazz, newclazz) match {
         case p @ Some(_: IncompatibleTemplateDefProblem | _: CyclicTypeReferenceProblem) =>

@@ -7,9 +7,9 @@ object MemberInfo {
 sealed abstract class MemberInfo(val owner: ClassInfo, val bytecodeName: String, val flags: Int, val descriptor: String)
     extends InfoLike
 {
-  final var isDeprecated: Boolean   = false
-  final var signature: Signature    = Signature.none // Includes generics. 'descriptor' is the erased version.
-  final var packagePrivate: Boolean = false
+  final var isDeprecated: Boolean  = false
+  final var signature: Signature   = Signature.none // Includes generics. 'descriptor' is the erased version.
+  final var scopedPrivate: Boolean = false
 
   def nonAccessible: Boolean
 
@@ -63,10 +63,10 @@ private[mima] final class MethodInfo(owner: ClassInfo, bytecodeName: String, fla
     decodedName.substring(0, i + 1).endsWith("$extension")
   }
   def nonAccessible: Boolean = {
-    !isPublic || isPackagePrivate || isSynthetic ||
+    !isPublic || isScopedPrivate || isSynthetic ||
       (hasSyntheticName && !(isExtensionMethod || isDefaultGetter || isTraitInit))
   }
-  def isPackagePrivate: Boolean = packagePrivate
+  def isScopedPrivate: Boolean = scopedPrivate
 
   override def toString = s"def $bytecodeName: $descriptor"
 }
