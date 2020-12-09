@@ -71,8 +71,11 @@ object MimaUnpickler {
         }
       }
 
+      val moduleClass = clazz.moduleClass
+      val targetClass = if (moduleClass == NoClass) clazz else moduleClass
+
       methods.groupBy(_._1).foreach { case (name, overloads) =>
-        val methods = clazz.moduleClass._methods.get(name).toList
+        val methods = targetClass._methods.get(name).toList
         if (methods.nonEmpty) { // fields are VALsym's with name "bar " (local)
           assert(overloads.size == methods.size, s"size mismatch; methods=$methods overloads=$overloads")
           methods.zip(overloads).foreach { case (method, (_, isScopedPrivate)) =>
