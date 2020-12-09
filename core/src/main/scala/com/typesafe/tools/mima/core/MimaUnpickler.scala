@@ -42,7 +42,8 @@ object MimaUnpickler {
 
     def symbolInfo(): Unit = {
       val end = readEnd()
-      buf.readNat()     // name
+      val name = nameRef()
+      println(s"name=$name")
       buf.readNat()     // owner (symbol) ref
       buf.readLongNat() // flags
       buf.readNat()     // privateWithin or symbol info (compare to end)
@@ -73,6 +74,10 @@ object MimaUnpickler {
 
       val moduleClass = clazz.moduleClass
       val targetClass = if (moduleClass == NoClass) clazz else moduleClass
+      println(s"clazz=$clazz")
+      println(s"moduleClass=$moduleClass")
+      println(s"methods=$methods")
+      println(s"targetClass._methods=${targetClass._methods.value}")
 
       methods.groupBy(_._1).foreach { case (name, overloads) =>
         val methods = targetClass._methods.get(name).toList
@@ -87,8 +92,8 @@ object MimaUnpickler {
 
     buf.readIndex = index(0)
     buf.readByte() match {
-      case  CLASSsym => read()
-      case MODULEsym => read()
+      case  CLASSsym => println(s"tag =  CLASSsym"); read()
+      case MODULEsym => println(s"tag = MODULEsym"); read()
       case _         =>
     }
   }
