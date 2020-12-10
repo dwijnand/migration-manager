@@ -11,6 +11,7 @@ class PickleBuffer(data: Array[Byte], from: Int, to: Int) {
   var readIndex = from
 
   def readByte(): Int = { val x = bytes(readIndex).toInt; readIndex += 1; x }
+  def lastByte(): Int = bytes(readIndex - 1).toInt
 
   /** Read a natural number in big endian format, base 128. All but the last digits have bit 0x80 set. */
   def readNat(): Int = readLongNat().toInt

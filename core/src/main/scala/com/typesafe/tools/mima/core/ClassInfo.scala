@@ -67,6 +67,7 @@ private[mima] sealed abstract class ClassInfo(val owner: PackageInfo) extends In
 
   protected def afterLoading[A](x: => A): A
 
+  final def forceLoad: this.type         = afterLoading(this)
   final def innerClasses: Seq[String]    = afterLoading(_innerClasses)
   final def isLocalClass: Boolean        = afterLoading(_isLocalClass)
   final def isTopLevel: Boolean          = afterLoading(_isTopLevel)
@@ -77,8 +78,8 @@ private[mima] sealed abstract class ClassInfo(val owner: PackageInfo) extends In
   final def flags: Int                   = afterLoading(_flags)
   final def isScopedPrivate: Boolean     = afterLoading(_scopedPrivate)
   final def implClass: ClassInfo         = { owner.setImplClasses; _implClass } // returns NoClass if this is not a trait
-  final def moduleClass: ClassInfo       = { owner.setModules; _moduleClass }
-  final def module: ClassInfo            = { owner.setModules; _module }
+  final def moduleClass: ClassInfo       = { owner.setModules; if (_moduleClass == NoClass) this else _moduleClass }
+  final def module: ClassInfo            = { owner.setModules; if (_module      == NoClass) this else _module      }
 
   final def isTrait: Boolean          = implClass ne NoClass // trait with some concrete methods or fields
   final def isModuleClass: Boolean    = bytecodeName.endsWith("$") // super scuffed

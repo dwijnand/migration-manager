@@ -1,14 +1,16 @@
 package com.typesafe.tools.mima.core
 
+import scala.annotation.tailrec
+
 import PickleFormat._
 
 object MimaUnpickler {
   def unpickleClass(buf: PickleBuffer, clazz: ClassInfo, path: String) = {
-    //if (path.contains("A")) {
-    //  println(s"unpickling $path")
-    //  ShowPickled.printPickle(buf, Console.out)
-    //  buf.readIndex = 0
-    //}
+    if (path.contains("Foo")) {
+      println(s"unpickling $path")
+      ShowPickled.printPickle(buf, Console.out)
+      buf.readIndex = 0
+    }
 
     buf.readNat(); buf.readNat() // major, minor version
 
@@ -18,8 +20,7 @@ object MimaUnpickler {
     def nameRef() = nameAt(buf.readNat())
 
     def nameAt(num: Int) = {
-      val idx = index(num)
-      buf.runAtReadIndex(idx) {
+      buf.runAtReadIndex(index(num)) {
         val tag   = buf.readByte()
         val len   = buf.readNat()
         val bytes = buf.slice(buf.readIndex, buf.readIndex + len)
@@ -46,61 +47,73 @@ object MimaUnpickler {
       }
     }
 
-    def symbolInfo(): Unit = {
+    def symbolInfo(clazz: ClassInfo): Unit = {
       val end = readEnd()
-      val name = nameRef()
-      println(s"name=$name")
+      buf.readNat()     // name
       buf.readNat()     // owner (symbol) ref
       buf.readLongNat() // flags
       buf.readNat()     // privateWithin or symbol info (compare to end)
-      if (buf.readIndex != end) clazz._scopedPrivate = true
+      if (buf.readIndex != end)
+        clazz.module._scopedPrivate = true
     }
 
-    def valSym(): (String, Boolean) = {
+    type Meth = (String, Boolean)
+    def valSym(): Meth = {
       val end   = readEnd()
       val name  = nameRef()
-      val owner = buf.readNat()
+      buf.readNat()     // owner
       buf.readLongNat() // flags
       buf.readNat()     // privateWithin or symbol info (compare to end)
-      val isScopedPrivate = buf.readIndex != end && owner == 0
+      val isScopedPrivate = buf.readIndex != end
       buf.readIndex = end
       (name, isScopedPrivate)
     }
 
-    def read(): Unit = {
-      symbolInfo()
+    @tailrec def read(targetClass: ClassInfo): Unit = {
+      symbolInfo(targetClass)
 
-      val methods = index.indices.drop(1).toList.flatMap { i =>
-        buf.readIndex = index(i)
+      val methods = new scala.collection.mutable.ListBuffer[Meth]
+      @tailrec def readMethod(num: Int): Unit = {
+        if (num >= index.length) return
+        buf.readIndex = index(num)
         buf.readByte() match {
-          case VALsym => List(valSym())
-          case _      => Nil
+          case    VALsym => methods += valSym()
+          case MODULEsym => return
+          case  CLASSsym => return
+          case _         =>
         }
+        readMethod(num + 1)
       }
+      readMethod(index.indices.drop(1).find(index(_) >= buf.readIndex).getOrElse(1))
 
-      val moduleClass = clazz.moduleClass
-      val targetClass = if (moduleClass == NoClass) clazz else moduleClass
-      println(s"clazz=$clazz")
-      println(s"moduleClass=$moduleClass")
-      println(s"methods=$methods")
-      println(s"targetClass._methods=${targetClass._methods.value}")
+      //println(s"clazz=$clazz")
+      //println(s"found methods=$methods")
+      //println(s"clazz methods=${clazz._methods.value}")
 
       methods.groupBy(_._1).foreach { case (name, overloads) =>
         val methods = targetClass._methods.get(name).toList
-        if (methods.nonEmpty) { // fields are VALsym's with name "bar " (local)
+        if (methods.nonEmpty && overloads.exists(_._2)) { // fields are VALsym's with name "bar " (local)
           assert(overloads.size == methods.size, s"size mismatch; methods=$methods overloads=$overloads")
           methods.zip(overloads).foreach { case (method, (_, isScopedPrivate)) =>
             method.scopedPrivate = isScopedPrivate
           }
         }
       }
+
+      if (buf.lastByte() == MODULEsym) {
+        read(targetClass.moduleClass)
+      } else if (buf.lastByte() == CLASSsym) {
+        val startPoint = buf.readIndex
+        val name       = nameRef()
+        read(targetClass.moduleClass)
+      }
     }
 
     buf.readIndex = index(0)
     try {
       buf.readByte() match {
-        case  CLASSsym => println(s"tag =  CLASSsym"); read()
-        case MODULEsym => println(s"tag = MODULEsym"); read()
+        case  CLASSsym => read(clazz)
+        case MODULEsym => read(clazz.moduleClass)
         case _         =>
       }
     } catch {

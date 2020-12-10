@@ -9,8 +9,9 @@ import com.typesafe.tools.mima.lib.analyze.template.TemplateChecker
 object Analyzer {
   def analyze(oldpkg: PackageInfo, newpkg: PackageInfo, log: Logging): List[Problem] = {
     for {
-      oldclazz <- oldpkg.accessibleClasses.toList
+      oldclazz <- oldpkg.accessibleClasses.toList.sortBy(_.bytecodeName)
       _ = log.verbose(s"analyzing $oldclazz")
+      _ = oldclazz.forceLoad
       // if it is missing a trait implementation class, then no error should be reported
       // since there should be already errors, i.e., missing methods...
       if !oldclazz.isImplClass

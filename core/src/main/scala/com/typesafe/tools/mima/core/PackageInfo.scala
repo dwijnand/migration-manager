@@ -105,8 +105,10 @@ sealed abstract class PackageInfo {
       if clazz.isModuleClass
       module <- classes.get(name.init)
     } {
-      clazz._module      = module
-      clazz._moduleClass = clazz
+      clazz._module       = module
+      clazz._moduleClass  = clazz
+      module._moduleClass = clazz
+      module._module      = module
     }
   }
 
