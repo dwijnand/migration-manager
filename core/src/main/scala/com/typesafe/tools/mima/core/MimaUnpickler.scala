@@ -6,7 +6,7 @@ import PickleFormat._
 
 object MimaUnpickler {
   def unpickleClass(buf: PickleBuffer, clazz: ClassInfo, path: String) = {
-    if (path.contains("Foo")) {
+    if (path.toLowerCase.contains("foo")) {
       println(s"unpickling $path")
       ShowPickled.printPickle(buf, Console.out)
       buf.readIndex = 0
