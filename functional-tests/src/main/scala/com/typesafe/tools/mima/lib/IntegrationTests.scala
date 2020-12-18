@@ -59,14 +59,8 @@ object IntegrationTests {
   def testCollectProblems(baseDir: Directory, problemFilter: Problem => Boolean, cp: Seq[File], v1: File, v2: File, direction: Direction): Try[Unit] = {
     val problems = CollectProblemsTest.collectProblems(cp, v1, v2, direction).filter(problemFilter)
     val expected = CollectProblemsTest.readOracleFile((baseDir / direction.oracleFile).jfile)
-    CollectProblemsTest.diffProblems(problems, expected, direction, howToFilter)
+    CollectProblemsTest.diffProblems(problems, expected, direction)
   }
-
-  def howToFilter(p: Problem) = p.matchName.map { matchName =>
-    s"{ matchName=$dq$matchName$dq , problemName=${p.getClass.getSimpleName} }"
-  }
-
-  private final val dq = '"' // scala/bug#6476 -.-
 }
 
 object CompareJars {
