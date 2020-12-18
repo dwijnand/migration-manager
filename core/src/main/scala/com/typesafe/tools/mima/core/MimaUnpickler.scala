@@ -6,11 +6,11 @@ import PickleFormat._
 
 object MimaUnpickler {
   def unpickleClass(buf: PickleBuffer, clazz: ClassInfo, path: String) = {
-    if (path.toLowerCase.contains("foo")) {
-      println(s"unpickling $path")
-      ShowPickled.printPickle(buf, Console.out)
-      buf.readIndex = 0
-    }
+    //if (path.toLowerCase.contains("foo") && path.contains("v1")) {
+    //  println(s"unpickling $path")
+    //  ShowPickled.printPickle(buf, Console.out)
+    //  buf.readIndex = 0
+    //}
 
     buf.readNat(); buf.readNat() // major, minor version
 
@@ -58,9 +58,9 @@ object MimaUnpickler {
     }
 
     type Meth = (String, Boolean)
-    def valSym(): Meth = {
-      val end   = readEnd()
-      val name  = nameRef()
+    def readMeth(): Meth = {
+      val end  = readEnd()
+      val name = nameRef()
       buf.readNat()     // owner
       buf.readLongNat() // flags
       buf.readNat()     // privateWithin or symbol info (compare to end)
@@ -69,30 +69,26 @@ object MimaUnpickler {
       (name, isScopedPrivate)
     }
 
-    @tailrec def read(targetClass: ClassInfo): Unit = {
-      symbolInfo(targetClass)
+    @tailrec def read(clazz: ClassInfo): Unit = {
+      symbolInfo(clazz)
 
       val methods = new scala.collection.mutable.ListBuffer[Meth]
-      @tailrec def readMethod(num: Int): Unit = {
+      @tailrec def readBodyEntries(num: Int): Unit = {
         if (num >= index.length) return
         buf.readIndex = index(num)
         buf.readByte() match {
-          case    VALsym => methods += valSym()
-          case MODULEsym => return
           case  CLASSsym => return
+          case MODULEsym => return
+          case    VALsym => methods += readMeth()
           case _         =>
         }
-        readMethod(num + 1)
+        readBodyEntries(num + 1)
       }
-      readMethod(index.indices.drop(1).find(index(_) >= buf.readIndex).getOrElse(1))
-
-      //println(s"clazz=$clazz")
-      //println(s"found methods=$methods")
-      //println(s"clazz methods=${clazz._methods.value}")
+      index.indices.find(index(_) >= buf.readIndex).foreach(readBodyEntries)
 
       methods.groupBy(_._1).foreach { case (name, overloads) =>
-        val methods = targetClass._methods.get(name).toList
-        if (methods.nonEmpty && overloads.exists(_._2)) { // fields are VALsym's with name "bar " (local)
+        val methods = clazz._methods.get(name).toList
+        if (methods.nonEmpty && overloads.exists(_._2)) {
           assert(overloads.size == methods.size, s"size mismatch; methods=$methods overloads=$overloads")
           methods.zip(overloads).foreach { case (method, (_, isScopedPrivate)) =>
             method.scopedPrivate = isScopedPrivate
@@ -100,12 +96,25 @@ object MimaUnpickler {
         }
       }
 
-      if (buf.lastByte() == MODULEsym) {
-        read(targetClass.moduleClass)
-      } else if (buf.lastByte() == CLASSsym) {
-        val startPoint = buf.readIndex
-        val name       = nameRef()
-        read(targetClass.moduleClass)
+      // TODO next:
+      // need to find the right ClassInfo instance
+      // consider: CLASSsym then CLASSsym, like `class x { class y }`
+      // consider: asserting name in symbolInfo?
+      // consider: keeping way to lookup entry num -> ClassInfo
+      //   so that:
+      //     0, 3: MODULEsym 5: 13(x) 14 400[<module>] 19
+      //     1,10:  CLASSsym 5: 21(x) 14 400[<module>] 22
+      //     3,24: MODULEsym 5: 31(y)  1 400[<module>] 32
+      //     4,31:  CLASSsym 5: 34(y)  1 400[<module>] 35
+      //     6,45: MODULEsym 5: 37(z)  4 400[<module>] 38
+      //     7,52:  CLASSsym 5: 40(z)  4 400[<module>] 41
+      //       3/4 can find its owner (1)'s ClassInfo?
+      //   and 6/7 can find its owner (4)'s ClassInfo?
+      //   perhaps just for its name so we can mangle some more and look up the class
+      buf.lastByte() match {
+        case  CLASSsym => read(clazz.moduleClass)
+        case MODULEsym => read(clazz)
+        case _         =>
       }
     }
 
@@ -113,7 +122,7 @@ object MimaUnpickler {
     try {
       buf.readByte() match {
         case  CLASSsym => read(clazz)
-        case MODULEsym => read(clazz.moduleClass)
+        case MODULEsym => read(clazz)
         case _         =>
       }
     } catch {

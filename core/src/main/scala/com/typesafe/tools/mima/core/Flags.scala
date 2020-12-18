@@ -133,9 +133,9 @@ class ModifierFlags {
   // Overridden.
   def flagToString(flag: Long): String = ""
 
-  final val PrivateLocal   = PRIVATE | LOCAL
+  final val PrivateLocal   = PRIVATE   | LOCAL
   final val ProtectedLocal = PROTECTED | LOCAL
-  final val AccessFlags    = PRIVATE | PROTECTED | LOCAL
+  final val AccessFlags    = PRIVATE   | PROTECTED | LOCAL
 }
 
 object ModifierFlags extends ModifierFlags
@@ -486,17 +486,15 @@ class Flags extends ModifierFlags {
     case _ => ""
   }
 
-  private def accessString(flags: Long, privateWithin: String)= (
-    if (privateWithin == "") {
-      if ((flags & PrivateLocal) == PrivateLocal) "private[this]"
-      else if ((flags & ProtectedLocal) == ProtectedLocal) "protected[this]"
-      else if ((flags & PRIVATE) != 0) "private"
+  private def accessString(flags: Long, privateWithin: String) = {
+    val access =
+           if ((flags & PRIVATE)   != 0) "private"
       else if ((flags & PROTECTED) != 0) "protected"
       else ""
-    }
-    else if ((flags & PROTECTED) != 0) "protected[" + privateWithin + "]"
-    else "private[" + privateWithin + "]"
-  )
+    if (privateWithin != "") s"$access[$privateWithin]"
+    else if ((flags & LOCAL) != 0) s"$access[this]"
+    else access
+  }
 
   private[mima] def flagsToString(flags: Long, privateWithin: String): String = {
     val access    = accessString(flags, privateWithin)

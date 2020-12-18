@@ -22,7 +22,7 @@ final class MiMaLib(cp: Seq[File], log: Logging = ConsoleLogging) {
 
   private def traversePackages(oldpkg: PackageInfo, newpkg: PackageInfo): List[Problem] = {
     log.verbose(s"traversing $oldpkg")
-    Analyzer.analyze(oldpkg, newpkg, log) ++ oldpkg.packages.valuesIterator.flatMap { p =>
+    Analyzer.analyze(oldpkg, newpkg, log) ++ oldpkg.packages.values.toSeq.sortBy(_.name).flatMap { p =>
       val q = newpkg.packages.getOrElse(p.name, NoPackageInfo)
       traversePackages(p, q)
     }

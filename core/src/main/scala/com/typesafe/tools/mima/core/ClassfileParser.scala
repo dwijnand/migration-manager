@@ -85,16 +85,17 @@ final class ClassfileParser private (in: BufferReader, pool: ConstantPool) {
     }
   }
 
-  private def parseInnerClasses(c: ClassInfo) = for {
-    _ <- 0 until in.nextChar
-    (innerIndex, outerIndex, innerNameIndex) = (in.nextChar, in.nextChar, in.nextChar)
-    _ = in.skip(2) // inner class flags
-    if innerIndex != 0 && outerIndex != 0 && innerNameIndex != 0
-    if pool.getClassName(outerIndex) == c.bytecodeName
-  } yield {
-    val className = pool.getClassName(innerIndex)
-    if (className == c.bytecodeName) c._isTopLevel = false // an inner class lists itself in InnerClasses
-    className
+  private def parseInnerClasses(c: ClassInfo) = {
+    val innerClasses = for {
+      _ <- 0 until in.nextChar
+      (innerIndex, outerIndex, innerNameIndex) = (in.nextChar, in.nextChar, in.nextChar)
+      _ = in.skip(2) // inner class flags
+      if innerIndex != 0 && outerIndex != 0 && innerNameIndex != 0
+      if pool.getClassName(outerIndex) == c.bytecodeName
+    } yield pool.getClassName(innerIndex)
+    if (innerClasses.contains(c.bytecodeName))
+      c._isTopLevel = false // an inner class lists itself in InnerClasses
+    innerClasses
   }
 
   private def parsePickle(clazz: ClassInfo) = {

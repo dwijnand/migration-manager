@@ -68,12 +68,10 @@ sealed abstract class PackageInfo {
   }
 
   final lazy val accessibleClasses: Set[ClassInfo] = {
-    // Fixed point iteration for finding all accessible classes.
-    @tailrec
-    def accessibleClassesUnder(prefix: Set[ClassInfo], found: Set[ClassInfo]): Set[ClassInfo] = {
-      val vclasses = (classes.valuesIterator.filter(isAccessible(_, prefix))).toSet
-      if (vclasses.isEmpty) found
-      else accessibleClassesUnder(vclasses, vclasses ++ found)
+    @tailrec def loop(found: Set[ClassInfo], prefix: Set[ClassInfo]): Set[ClassInfo] = {
+      val accessibleClasses = classes.valuesIterator.filter(isAccessible(_, prefix)).toSet
+      if (accessibleClasses.isEmpty) found
+      else loop(accessibleClasses ++ found, accessibleClasses)
     }
 
     def isAccessible(clazz: ClassInfo, prefix: Set[ClassInfo]) =
@@ -84,7 +82,7 @@ sealed abstract class PackageInfo {
       else prefix.exists(_.innerClasses.contains(clazz.bytecodeName))
     }
 
-    accessibleClassesUnder(Set.empty, Set.empty)
+    loop(Set.empty, Set.empty)
   }
 
   // Used to make sure trait classes have their impl class field set
@@ -98,7 +96,7 @@ sealed abstract class PackageInfo {
     }
   }
 
-  // TODO: Foo$ (without pickle) is parsed before Foo (MODULEsym then CLASSsym) so should be able to set this then
+  // TODO: Foo contains pickle, so if parse Foo$ before should be able to set this then
   final lazy val setModules: Unit = {
     for {
       (name, clazz) <- classes.iterator
@@ -106,9 +104,7 @@ sealed abstract class PackageInfo {
       module <- classes.get(name.init)
     } {
       clazz._module       = module
-      clazz._moduleClass  = clazz
       module._moduleClass = clazz
-      module._module      = module
     }
   }
 
