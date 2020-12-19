@@ -7,26 +7,19 @@ package foo
 // Because of scala/bug#2034 we can't put these all in one package (you get "name clash" errors)
 // So instead we'll split them in 4 nice and even packages
 package l1  { object x { private[foo] def go11() = "11" }; class x { private[foo] def go12() = "12" } }
-// x$ + x
 
 package l2a { object x { object y { private[foo] def go21() = "21" }; class y { private[foo] def go22() = "22" } } }
 package l2b { class  x { object y { private[foo] def go23() = "23" }; class y { private[foo] def go24() = "24" } } }
-// x$ + x + x$y$ + x$y
-// x      + x$y$ + x$y
 
 package l3a { object x { object y { object z { private[foo] def go31() = "31" }; class z { private[foo] def go32() = "32" } } } }
 package l3b { object x { class  y { object z { private[foo] def go33() = "33" }; class z { private[foo] def go34() = "34" } } } }
 package l3c { class  x { object y { object z { private[foo] def go35() = "35" }; class z { private[foo] def go36() = "36" } } } }
 package l3d { class  x { class  y { object z { private[foo] def go37() = "37" }; class z { private[foo] def go38() = "38" } } } }
-// x$ + x + x$y$ + x$y$z$ + x$y$z
-// x$ + x + x$y  + x$y$z$ + x$y$z
-// x      + x$y$ + x$y$z$ + x$y$z
-// x      + x$y  + x$y$z$ + x$y$z
 
 object Lib {
   def doIt = { doL1(); doL2(); doL3() }
 
-  def doL1() = {
+  def doL1(): Unit = {
     val o =     l1.x
     val c = new l1.x()
   
@@ -34,7 +27,7 @@ object Lib {
     c.go12()
   }
   
-  def doL2() = {
+  def doL2(): Unit = {
     val o =     l2a.x
     val c = new l2b.x()
   
@@ -49,7 +42,7 @@ object Lib {
     cc.go24()
   }
   
-  def doL3() = {
+  def doL3(): Unit = {
     val o1 =     l3a.x
     val o2 =     l3b.x
     val c3 = new l3c.x()

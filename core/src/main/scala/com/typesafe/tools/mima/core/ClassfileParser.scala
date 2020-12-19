@@ -138,7 +138,7 @@ final class ClassfileParser private (in: BufferReader, pool: ConstantPool) {
         case ScalaSignatureAnnot     => checkScalaSigAnnotArg(); bytes = parseScalaSigBytes()
         case ScalaLongSignatureAnnot => checkScalaSigAnnotArg(); bytes = parseScalaLongSigBytes()
         case _                       => skipAnnotArgs()
-  }
+      }
       i += 1
     }
     if (bytes != null) {

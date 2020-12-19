@@ -1,23 +1,24 @@
 package com.typesafe.tools.mima.core
 
 import scala.annotation.tailrec
-
+import scala.collection.mutable
 import PickleFormat._
+
+import scala.collection.mutable.ListBuffer
 
 object MimaUnpickler {
   def unpickleClass(buf: PickleBuffer, clazz: ClassInfo, path: String) = {
-    //if (path.toLowerCase.contains("foo") && path.contains("v1")) {
-    //  println(s"unpickling $path")
-    //  ShowPickled.printPickle(buf, Console.out)
-    //  buf.readIndex = 0
-    //}
+    val doPrint = false // path.contains("v1")
+    if (path.toLowerCase.contains("foo") && path.contains("v1")) {
+      println(s"unpickling $path")
+      //ShowPickled.printPickle(buf, Console.out)
+      //buf.readIndex = 0
+    }
 
     buf.readNat(); buf.readNat() // major, minor version
 
-    val index = buf.createIndex
-
-    def readEnd() = buf.readNat() + buf.readIndex
-    def nameRef() = nameAt(buf.readNat())
+    val origClass = clazz
+    val index     = buf.createIndex
 
     def nameAt(num: Int) = {
       buf.runAtReadIndex(index(num)) {
@@ -25,12 +26,12 @@ object MimaUnpickler {
         val len   = buf.readNat()
         val bytes = buf.slice(buf.readIndex, buf.readIndex + len)
         def readStrRef() = {
-          val bytes2 = buf.runAtReadIndex(index(readNat(bytes))) {
+          val stringBytes = buf.runAtReadIndex(index(readNat(bytes))) {
             buf.readByte() // tag
             val len = buf.readNat()
             buf.slice(buf.readIndex, buf.readIndex + len)
           }
-          utf8Str(bytes2)
+          utf8Str(stringBytes)
         }
         tag match {
           case TERMname       => utf8Str(bytes)
@@ -47,82 +48,111 @@ object MimaUnpickler {
       }
     }
 
-    def symbolInfo(clazz: ClassInfo): Unit = {
-      val end = readEnd()
-      buf.readNat()     // name
-      buf.readNat()     // owner (symbol) ref
-      buf.readLongNat() // flags
-      buf.readNat()     // privateWithin or symbol info (compare to end)
-      if (buf.readIndex != end)
-        clazz.module._scopedPrivate = true
+    def getNextNum() = index.indices.find(index(_) >= buf.readIndex).getOrElse(index.length)
+    def    readEnd() = buf.readNat() + buf.readIndex
+    def    nameRef() = nameAt(buf.readNat())
+    def   ownerRef() = buf.readNat()
+
+    final case class SymbolInfo(tag: Int, name: String, owner: Int, isScopedPrivate: Boolean) {
+      override def toString = {
+        val tag_s = tag match {
+          case  CLASSsym =>  "CLASSsym"
+          case MODULEsym => "MODULEsym"
+          case _         => s"$tag"
+        }
+        s"SymbolInfo($tag_s, $name, owner=$owner, isScopedPrivate=$isScopedPrivate)"
+      }
     }
 
-    type Meth = (String, Boolean)
-    def readMeth(): Meth = {
-      val end  = readEnd()
-      val name = nameRef()
-      buf.readNat()     // owner
+    // SymbolInfo = name_Ref owner_Ref flags_LongNat [privateWithin_Ref] info_Ref
+    def readSymbolInfo(): SymbolInfo = {
+      val tag   = buf.lastByte()
+      val end   =  readEnd()
+      val name  =  nameRef()
+      val owner = ownerRef()
       buf.readLongNat() // flags
       buf.readNat()     // privateWithin or symbol info (compare to end)
       val isScopedPrivate = buf.readIndex != end
       buf.readIndex = end
-      (name, isScopedPrivate)
+      SymbolInfo(tag, name, owner, isScopedPrivate)
     }
 
-    @tailrec def read(clazz: ClassInfo): Unit = {
-      symbolInfo(clazz)
+    val classes = new mutable.HashMap[Int, ClassInfo]()
 
-      val methods = new scala.collection.mutable.ListBuffer[Meth]
+    def readMethods(clazz: ClassInfo) = {
+      val methods = new ListBuffer[SymbolInfo]
+
       @tailrec def readBodyEntries(num: Int): Unit = {
         if (num >= index.length) return
         buf.readIndex = index(num)
         buf.readByte() match {
-          case  CLASSsym => return
+          case CLASSsym  => return
           case MODULEsym => return
-          case    VALsym => methods += readMeth()
+          case VALsym    => methods += readSymbolInfo()
           case _         =>
         }
         readBodyEntries(num + 1)
       }
-      index.indices.find(index(_) >= buf.readIndex).foreach(readBodyEntries)
+      readBodyEntries(getNextNum())
 
-      methods.groupBy(_._1).foreach { case (name, overloads) =>
-        val methods = clazz._methods.get(name).toList
-        if (methods.nonEmpty && overloads.exists(_._2)) {
+      // TODO support package private constructors
+      // TODO test    package private static methods?
+      if (doPrint) println(s"clazz = $clazz")
+      methods.groupBy(_.name).filter(_._1 != "<init>").foreach { case (name, overloads) =>
+        val methods = clazz.methods.get(name).toList
+        if (doPrint) println(s"  pickle methods = $overloads")
+        if (doPrint) println(s"  bytecode methods = $methods")
+        if (methods.nonEmpty && overloads.exists(_.isScopedPrivate)) {
           assert(overloads.size == methods.size, s"size mismatch; methods=$methods overloads=$overloads")
-          methods.zip(overloads).foreach { case (method, (_, isScopedPrivate)) =>
-            method.scopedPrivate = isScopedPrivate
+          methods.zip(overloads).foreach { case (method, symbolInfo) =>
+            method.scopedPrivate = symbolInfo.isScopedPrivate
           }
         }
       }
+    }
 
-      // TODO next:
-      // need to find the right ClassInfo instance
-      // consider: CLASSsym then CLASSsym, like `class x { class y }`
-      // consider: asserting name in symbolInfo?
-      // consider: keeping way to lookup entry num -> ClassInfo
-      //   so that:
-      //     0, 3: MODULEsym 5: 13(x) 14 400[<module>] 19
-      //     1,10:  CLASSsym 5: 21(x) 14 400[<module>] 22
-      //     3,24: MODULEsym 5: 31(y)  1 400[<module>] 32
-      //     4,31:  CLASSsym 5: 34(y)  1 400[<module>] 35
-      //     6,45: MODULEsym 5: 37(z)  4 400[<module>] 38
-      //     7,52:  CLASSsym 5: 40(z)  4 400[<module>] 41
-      //       3/4 can find its owner (1)'s ClassInfo?
-      //   and 6/7 can find its owner (4)'s ClassInfo?
-      //   perhaps just for its name so we can mangle some more and look up the class
+    sealed trait MCMC
+    case object M  extends MCMC
+    case object C  extends MCMC
+    case object MC extends MCMC
+
+    @tailrec def read(num: Int, mcmc: MCMC): Unit = {
+      val symbolInfo = readSymbolInfo()
+
+      val clazz = num match {
+        case 1 => origClass.moduleClass
+        case _ => classes.get(symbolInfo.owner) match {
+          case None        => origClass
+          case Some(owner) =>
+            val nme1 = owner.bytecodeName
+            val nme2 = symbolInfo.name
+            val conc = if (nme1.endsWith("$")) "" else "$"
+            val suff = if (mcmc == C) "" else "$"
+            val cls  = origClass.owner.classes(nme1 + conc + nme2 + suff)
+            cls
+        }
+      }
+
+      if (symbolInfo.isScopedPrivate)
+        clazz.module._scopedPrivate = true
+
+      classes(num) = clazz
+
+      readMethods(clazz)
+
       buf.lastByte() match {
-        case  CLASSsym => read(clazz.moduleClass)
-        case MODULEsym => read(clazz)
-        case _         =>
+        case  CLASSsym if mcmc == M => read(getNextNum() - 1, MC)
+        case  CLASSsym              => read(getNextNum() - 1, C)
+        case MODULEsym              => read(getNextNum() - 1, M)
+        case _                      =>
       }
     }
 
     buf.readIndex = index(0)
     try {
       buf.readByte() match {
-        case  CLASSsym => read(clazz)
-        case MODULEsym => read(clazz)
+        case  CLASSsym => read(0, C)
+        case MODULEsym => read(0, M)
         case _         =>
       }
     } catch {

@@ -38,13 +38,11 @@ private[core] final class ConcreteClassInfo(owner: PackageInfo, val file: AbsFil
   private var loaded: Boolean = false
 
   protected def afterLoading[A](x: => A) = {
-    if (!loaded)
-      try {
-        ConsoleLogging.verbose(s"parsing $file")
-        ClassfileParser.parseInPlace(this, file)
-      } finally {
-        loaded = true
-      }
+    if (!loaded) {
+      loaded = true
+      ConsoleLogging.verbose(s"parsing $file")
+      ClassfileParser.parseInPlace(this, file)
+    }
     x
   }
 }

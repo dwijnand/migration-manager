@@ -360,50 +360,50 @@ class Flags extends ModifierFlags {
   // The flags from 0x001 to 0x800 are different in the raw flags
   // and in the pickled format.
 
-  private final val IMPLICIT_PKL   = (1L << 0)
-  private final val FINAL_PKL      = (1L << 1)
-  private final val PRIVATE_PKL    = (1L << 2)
-  private final val PROTECTED_PKL  = (1L << 3)
-  private final val SEALED_PKL     = (1L << 4)
-  private final val OVERRIDE_PKL   = (1L << 5)
-  private final val CASE_PKL       = (1L << 6)
-  private final val ABSTRACT_PKL   = (1L << 7)
-  private final val DEFERRED_PKL   = (1L << 8)
-  private final val METHOD_PKL     = (1L << 9)
-  private final val MODULE_PKL     = (1L << 10)
-  private final val INTERFACE_PKL  = (1L << 11)
+  private final val  IMPLICIT_PKL = (1L << 0)
+  private final val     FINAL_PKL = (1L << 1)
+  private final val   PRIVATE_PKL = (1L << 2)
+  private final val PROTECTED_PKL = (1L << 3)
+  private final val    SEALED_PKL = (1L << 4)
+  private final val  OVERRIDE_PKL = (1L << 5)
+  private final val      CASE_PKL = (1L << 6)
+  private final val  ABSTRACT_PKL = (1L << 7)
+  private final val  DEFERRED_PKL = (1L << 8)
+  private final val    METHOD_PKL = (1L << 9)
+  private final val    MODULE_PKL = (1L << 10)
+  private final val INTERFACE_PKL = (1L << 11)
 
-  private final val PKL_MASK       = 0x00000FFF
+  private final val PKL_MASK      = 0x00000FFF
 
   /** Pickler correspondence, ordered roughly by frequency of occurrence */
   private def rawPickledCorrespondence = Array[(Long, Long)](
-    (METHOD, METHOD_PKL),
-    (PRIVATE, PRIVATE_PKL),
-    (FINAL, FINAL_PKL),
+    (METHOD,       METHOD_PKL),
+    (PRIVATE,     PRIVATE_PKL),
+    (FINAL,         FINAL_PKL),
     (PROTECTED, PROTECTED_PKL),
-    (CASE, CASE_PKL),
-    (DEFERRED, DEFERRED_PKL),
-    (MODULE, MODULE_PKL),
-    (OVERRIDE, OVERRIDE_PKL),
+    (CASE,           CASE_PKL),
+    (DEFERRED,   DEFERRED_PKL),
+    (MODULE,       MODULE_PKL),
+    (OVERRIDE,   OVERRIDE_PKL),
     (INTERFACE, INTERFACE_PKL),
-    (IMPLICIT, IMPLICIT_PKL),
-    (SEALED, SEALED_PKL),
-    (ABSTRACT, ABSTRACT_PKL)
+    (IMPLICIT,   IMPLICIT_PKL),
+    (SEALED,       SEALED_PKL),
+    (ABSTRACT,   ABSTRACT_PKL),
   )
 
-  private[this] val mappedRawFlags = rawPickledCorrespondence map (_._1)
-  private[this] val mappedPickledFlags = rawPickledCorrespondence map (_._2)
+  private[this] val mappedRawFlags     = rawPickledCorrespondence.map(_._1)
+  private[this] val mappedPickledFlags = rawPickledCorrespondence.map(_._2)
 
   private class MapFlags(from: Array[Long], to: Array[Long]) extends (Long => Long) {
     val fromSet = from.foldLeft(0L) (_ | _)
 
     def apply(flags: Long): Long = {
-      var result = flags & ~fromSet
-      var tobeMapped = flags & fromSet
+      var result     = flags & ~fromSet
+      var tobeMapped = flags &  fromSet
       var i = 0
       while (tobeMapped != 0) {
         if ((tobeMapped & from(i)) != 0) {
-          result |= to(i)
+          result     |= to(i)
           tobeMapped &= ~from(i)
         }
         i += 1
