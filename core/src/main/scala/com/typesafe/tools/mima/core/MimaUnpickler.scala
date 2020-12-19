@@ -8,12 +8,12 @@ import scala.collection.mutable.ListBuffer
 
 object MimaUnpickler {
   def unpickleClass(buf: PickleBuffer, clazz: ClassInfo, path: String) = {
-    val doPrint = false // path.contains("v1")
-    if (path.toLowerCase.contains("foo") && path.contains("v1")) {
-      println(s"unpickling $path")
-      //ShowPickled.printPickle(buf, Console.out)
-      //buf.readIndex = 0
-    }
+    //val doPrint = path.contains("v1") && !path.contains("Lib")
+    //if (doPrint && path.toLowerCase.contains("foo")) {
+    //  println(s"unpickling $path")
+    //  ShowPickled.printPickle(buf, Console.out)
+    //  buf.readIndex = 0
+    //}
 
     buf.readNat(); buf.readNat() // major, minor version
 
@@ -96,12 +96,8 @@ object MimaUnpickler {
       readBodyEntries(getNextNum())
 
       // TODO support package private constructors
-      // TODO test    package private static methods?
-      if (doPrint) println(s"clazz = $clazz")
       methods.groupBy(_.name).filter(_._1 != "<init>").foreach { case (name, overloads) =>
         val methods = clazz.methods.get(name).toList
-        if (doPrint) println(s"  pickle methods = $overloads")
-        if (doPrint) println(s"  bytecode methods = $methods")
         if (methods.nonEmpty && overloads.exists(_.isScopedPrivate)) {
           assert(overloads.size == methods.size, s"size mismatch; methods=$methods overloads=$overloads")
           methods.zip(overloads).foreach { case (method, symbolInfo) =>
@@ -138,7 +134,7 @@ object MimaUnpickler {
 
       classes(num) = clazz
 
-      readMethods(clazz)
+      readMethods(if (mcmc == MC) clazz.moduleClass else clazz)
 
       buf.lastByte() match {
         case  CLASSsym if mcmc == M => read(getNextNum() - 1, MC)

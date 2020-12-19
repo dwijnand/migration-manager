@@ -65,17 +65,6 @@ package l3d { class  x { class  y { object z { private[foo] def go37() = 37 }; c
 //       4 MODULEsym z 2 + 5 CLASSsym z 2 // x$y$z$
 //       8  CLASSsym z 2                  // x$y$z
 
-//clazz = class x$y$z$
-//pickle methods = ListBuffer(SymbolInfo(8, go33, owner=6, isScopedPrivate=true))
-
-//clazz = class x$y$z
-//pickle methods = ListBuffer(SymbolInfo(8, go34, owner=9, isScopedPrivate=true))
-
-//parsing ../l3b/x$y$z$.class
-//problem found: method go33()Int in object foo.l3b.x#y#z has a different result type ...
-//parsing ../l3b/x$y$z.class
-//problem found: method go34()Int in class foo.l3b.x#y#z has a different result type ...
-
 object Lib {
   def doIt = { doL1(); doL2(); doL3() }
 
